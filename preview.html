@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Azerbaijan Weather & Wildfire Dashboard — Preview</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel-2: #1f2630; --border: #30363d;
+    --text: #e6edf3; --text-dim: #8b949e; --accent: #58a6ff;
+    --ok: #3fb950; --warn: #d29922; --danger: #f85149;
+    --very-high: #ff6b6b; --high: #f08b4c; --moderate: #f2c94c; --low: #7bc67b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+         background: var(--bg); color: var(--text); min-height: 100vh; }
+  header { padding: 24px 32px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; }
+  header p  { margin: 0; color: var(--text-dim); font-size: 13px; }
+  header .badge {
+    display: inline-block; margin-left: 8px; padding: 2px 8px;
+    background: var(--accent); color: #0d1117; border-radius: 4px;
+    font-size: 11px; font-weight: 600; vertical-align: middle;
+  }
+  header .meta-bar { display: flex; gap: 24px; margin-top: 12px; font-size: 12px;
+                     color: var(--text-dim); flex-wrap: wrap; }
+  header .meta-bar strong { color: var(--text); font-weight: 500; }
+  main { padding: 24px 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .panel { background: var(--panel); border: 1px solid var(--border);
+           border-radius: 8px; padding: 20px; }
+  .panel.full-width { grid-column: 1 / -1; }
+  .panel h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+  .panel .subtitle { margin: 0 0 16px; font-size: 12px; color: var(--text-dim); }
+  canvas { max-height: 340px; }
+  .controls { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .controls button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .controls button:hover { border-color: var(--accent); color: var(--accent); }
+  .controls button.active { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { font-weight: 600; color: var(--text-dim); font-size: 11px;
+       text-transform: uppercase; letter-spacing: 0.5px; }
+  tr:last-child td { border-bottom: none; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 4px;
+          font-size: 11px; font-weight: 600; text-transform: uppercase; }
+  .chip.very_high { background: #5b1d1d; color: var(--very-high); }
+  .chip.high      { background: #5c3a1d; color: var(--high); }
+  .chip.moderate  { background: #4d431d; color: var(--moderate); }
+  .chip.low       { background: #1f4130; color: var(--low); }
+  .chip.unknown   { background: #30363d; color: var(--text-dim); }
+  .chip.above, .chip.much-above { background: #5c3a1d; color: var(--high); }
+  .chip.below, .chip.much-below { background: #1d3a5c; color: var(--accent); }
+  .chip.normal    { background: #30363d; color: var(--text-dim); }
+  .chip.increasing { background: #5c3a1d; color: var(--high); }
+  .chip.decreasing { background: #1d3a5c; color: var(--accent); }
+  .chip.no-trend   { background: #30363d; color: var(--text-dim); }
+  .chip.much-wetter-than-normal { background: #1d3a5c; color: var(--accent); }
+  .chip.wetter-than-normal      { background: #1d3a5c; color: var(--accent); }
+  .chip.drier-than-normal       { background: #5c3a1d; color: var(--high); }
+  .chip.much-drier-than-normal  { background: #5c3a1d; color: var(--high); }
+  .chip.near-normal             { background: #30363d; color: var(--text-dim); }
+  .insight-card {
+    background: var(--panel-2); border-left: 3px solid var(--accent);
+    padding: 12px 16px; margin-bottom: 10px; border-radius: 4px;
+  }
+  .insight-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+  .insight-card p  { margin: 0; color: var(--text-dim); font-size: 12px; line-height: 1.7; }
+  .insight-card.very_high { border-left-color: var(--very-high); }
+  .insight-card.high      { border-left-color: var(--high); }
+  .insight-card.moderate  { border-left-color: var(--moderate); }
+  .insight-card.low       { border-left-color: var(--low); }
+  .error-banner {
+    position: fixed; top: 20px; right: 20px; max-width: 400px;
+    background: var(--danger); color: white; padding: 12px 16px;
+    border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 13px; z-index: 100;
+  }
+  .loading { color: var(--text-dim); text-align: center; padding: 40px; font-size: 13px; }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; padding: 16px 20px; }
+    header { padding: 16px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔥 Azerbaijan Weather &amp; Wildfire Outlook <span class="badge">Preview</span></h1>
+  <p>30-day forecast + wildfire risk + climate anomalies across 5 cities. Static snapshot; live version reads from FastAPI.</p>
+  <div class="meta-bar" id="metaBar"><span>Loading metadata...</span></div>
+</header>
+
+<main>
+  <section class="panel full-width" id="insightsPanel">
+    <h2>Executive Summary</h2>
+    <p class="subtitle">Per-city outlook combining weather, climate anomaly and wildfire risk.</p>
+    <div id="insightsGrid"><div class="loading">Loading...</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Weather Forecast — 30 days</h2>
+    <p class="subtitle">Pick a target to plot across cities.</p>
+    <div class="controls" id="weatherControls"></div>
+    <canvas id="weatherChart"></canvas>
+  </section>
+
+  <section class="panel">
+    <h2>Wildfire Probability — 30 days</h2>
+    <p class="subtitle">Calibrated daily probability per city. 0.25 and 0.50 are the category thresholds.</p>
+    <canvas id="wildfireChart"></canvas>
+  </section>
+
+  <section class="panel">
+    <h2>Wildfire Summary by City</h2>
+    <p class="subtitle">Rollup statistics over the 30-day forecast window.</p>
+    <table id="wildfireTable"><thead><tr>
+      <th>City</th><th class="num">Mean P</th><th class="num">Max P</th>
+      <th class="num">High-risk days</th><th class="num">Expected fires</th>
+    </tr></thead><tbody></tbody></table>
+  </section>
+
+  <section class="panel">
+    <h2>Climate Trends 2020-2025</h2>
+    <p class="subtitle">Annual Mann-Kendall + Theil-Sen per city. Small samples — read "no trend" as "not detectable".</p>
+    <table id="trendsTable"><thead><tr>
+      <th>City</th><th>Variable</th><th class="num">Slope / yr</th><th class="num">MK p</th><th>Direction</th>
+    </tr></thead><tbody></tbody></table>
+  </section>
+</main>
+
+<script>
+const DATA_DIR = "./preview_data";
+const CITY_COLORS = {
+  "Baku": "#58a6ff", "Ganja": "#f85149", "Guba": "#3fb950",
+  "Lankaran": "#d29922", "Zaqatala": "#bc8cff",
+};
+const TARGET_LABELS = {
+  "temperature_2m":     { label: "Temperature",         unit: "°C" },
+  "wind_speed_10m":     { label: "Wind speed",          unit: "m/s" },
+  "wind_direction_10m": { label: "Wind direction",      unit: "°" },
+  "rain":               { label: "Rain",                unit: "mm" },
+  "precipitation":      { label: "Precipitation",       unit: "mm" },
+};
+
+let state = {
+  activeTarget: "temperature_2m",
+  weatherLong: [], wildfire: [], wildfireSummary: [],
+  insights: [], trends: [], meta: null,
+  weatherChart: null, wildfireChart: null,
+};
+
+async function loadJson(name) {
+  const r = await fetch(`${DATA_DIR}/${name}.json`);
+  if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
+  return r.json();
+}
+
+function showError(msg) {
+  const b = document.createElement("div");
+  b.className = "error-banner"; b.textContent = msg;
+  document.body.appendChild(b); setTimeout(() => b.remove(), 6000);
+}
+
+function renderMeta(meta) {
+  document.getElementById("metaBar").innerHTML = `
+    <span><strong>Anchor:</strong> ${meta.anchor_date}</span>
+    <span><strong>Window:</strong> ${meta.forecast_start} → ${meta.forecast_end}</span>
+    <span><strong>Cities:</strong> ${meta.cities.join(", ")}</span>
+    <span><strong>Generated:</strong> ${new Date(meta.generated_at).toLocaleString()}</span>`;
+}
+
+function classNameFor(p) {
+  if (p >= 0.50) return "very_high";
+  if (p >= 0.25) return "high";
+  if (p >= 0.10) return "moderate";
+  return "low";
+}
+function chipFor(label) {
+  if (!label) label = "unknown";
+  const cls = label.toLowerCase().replace(/ /g, "-");
+  return `<span class="chip ${cls}">${label}</span>`;
+}
+
+function renderInsights(rows) {
+  const grid = document.getElementById("insightsGrid");
+  grid.innerHTML = "";
+  rows.forEach(r => {
+    const cls = classNameFor(r.mean_fire_probability);
+    const card = document.createElement("div");
+    card.className = `insight-card ${cls}`;
+    card.innerHTML = `
+      <h3>${r.headline}</h3>
+      <p>Temp outlook: ${chipFor(r.next_30d_temperature)} &nbsp; · &nbsp;
+         Rain outlook: ${chipFor(r.next_30d_rainfall)} &nbsp; · &nbsp;
+         Wind trend: ${chipFor(r.wind_trend)} &nbsp; · &nbsp;
+         mean daily P(fire) = <strong style="color:var(--text)">${r.mean_fire_probability.toFixed(2)}</strong></p>`;
+    grid.appendChild(card);
+  });
+}
+
+function renderWeatherControls() {
+  const host = document.getElementById("weatherControls");
+  host.innerHTML = "";
+  Object.entries(TARGET_LABELS).forEach(([t, meta]) => {
+    const b = document.createElement("button");
+    b.textContent = `${meta.label} (${meta.unit})`;
+    b.classList.toggle("active", t === state.activeTarget);
+    b.onclick = () => {
+      state.activeTarget = t;
+      renderWeatherControls();
+      drawWeatherChart();
+    };
+    host.appendChild(b);
+  });
+}
+
+function drawWeatherChart() {
+  const rows = state.weatherLong.filter(r => r.target === state.activeTarget);
+  const cities = [...new Set(rows.map(r => r.city))].sort();
+  const datasets = cities.map(city => {
+    const cityRows = rows.filter(r => r.city === city)
+                          .sort((a,b) => a.forecast_date.localeCompare(b.forecast_date));
+    return {
+      label: city,
+      data: cityRows.map(r => ({ x: r.forecast_date, y: r.y_pred })),
+      borderColor: CITY_COLORS[city], backgroundColor: CITY_COLORS[city],
+      tension: 0.3, pointRadius: 3, borderWidth: 1.6,
+    };
+  });
+  const ctx = document.getElementById("weatherChart");
+  if (state.weatherChart) state.weatherChart.destroy();
+  state.weatherChart = new Chart(ctx, {
+    type: "line", data: { datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: "bottom", labels: { color: "#e6edf3", boxWidth: 14 } },
+                 tooltip: { mode: "index", intersect: false } },
+      scales: {
+        x: { type: "time", time: { unit: "day", displayFormats: { day: "MMM d" } },
+             ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
+        y: { title: { display: true, text: TARGET_LABELS[state.activeTarget].unit, color: "#8b949e" },
+             ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
+      },
+    }
+  });
+}
+
+function drawWildfireChart() {
+  const cities = [...new Set(state.wildfire.map(r => r.city))].sort();
+  const datasets = cities.map(city => {
+    const cityRows = state.wildfire.filter(r => r.city === city)
+                          .sort((a,b) => a.forecast_date.localeCompare(b.forecast_date));
+    return {
+      label: city,
+      data: cityRows.map(r => ({ x: r.forecast_date, y: r.fire_probability })),
+      borderColor: CITY_COLORS[city], backgroundColor: CITY_COLORS[city],
+      tension: 0.3, pointRadius: 3, borderWidth: 1.6,
+    };
+  });
+  const ctx = document.getElementById("wildfireChart");
+  if (state.wildfireChart) state.wildfireChart.destroy();
+  state.wildfireChart = new Chart(ctx, {
+    type: "line", data: { datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: "bottom", labels: { color: "#e6edf3", boxWidth: 14 } },
+        tooltip: { mode: "index", intersect: false,
+                   callbacks: { label: c => `${c.dataset.label}: P = ${c.parsed.y.toFixed(3)}` } },
+      },
+      scales: {
+        x: { type: "time", time: { unit: "day", displayFormats: { day: "MMM d" } },
+             ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
+        y: { min: 0, max: 1,
+             title: { display: true, text: "P(fire on day)", color: "#8b949e" },
+             ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
+      },
+    }
+  });
+}
+
+function renderWildfireTable(rows) {
+  const tbody = document.querySelector("#wildfireTable tbody");
+  tbody.innerHTML = "";
+  rows.sort((a,b) => b.mean_probability - a.mean_probability).forEach(r => {
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${r.city}</strong></td>
+        <td class="num">${r.mean_probability.toFixed(3)}</td>
+        <td class="num">${r.max_probability.toFixed(3)}</td>
+        <td class="num">${r.days_high_or_above}</td>
+        <td class="num">${r.total_expected_count.toFixed(1)}</td>
+      </tr>`;
+  });
+}
+
+function renderTrendsTable(rows) {
+  const tbody = document.querySelector("#trendsTable tbody");
+  tbody.innerHTML = "";
+  rows.slice(0, 15).forEach(r => {
+    const arrow = r.mk_direction === "increasing" ? "▲" :
+                  r.mk_direction === "decreasing" ? "▼" : "—";
+    const color = r.mk_direction === "increasing" ? "var(--high)" :
+                  r.mk_direction === "decreasing" ? "var(--accent)" : "var(--text-dim)";
+    const slope = (r.ts_slope_per_year ?? 0).toFixed(3);
+    const p = (r.mk_p ?? 1).toFixed(3);
+    tbody.innerHTML += `
+      <tr>
+        <td>${r.City}</td>
+        <td><code style="color:var(--text-dim); font-size:11px">${r.variable}</code></td>
+        <td class="num">${slope}</td>
+        <td class="num">${p}</td>
+        <td><span style="color:${color}">${arrow} ${r.mk_direction}</span></td>
+      </tr>`;
+  });
+}
+
+async function boot() {
+  try {
+    const [meta, weatherLong, wildfire, wildfireSummary, insights, trends] = await Promise.all([
+      loadJson("meta"),
+      loadJson("weather_long"),
+      loadJson("wildfire"),
+      loadJson("wildfire_summary"),
+      loadJson("insights"),
+      loadJson("insights_trends"),
+    ]);
+    state.meta = meta; state.weatherLong = weatherLong;
+    state.wildfire = wildfire; state.wildfireSummary = wildfireSummary;
+    state.insights = insights; state.trends = trends;
+
+    renderMeta(meta);
+    renderInsights(insights);
+    renderWeatherControls();
+    drawWeatherChart();
+    drawWildfireChart();
+    renderWildfireTable(wildfireSummary);
+    renderTrendsTable(trends);
+  } catch (e) {
+    console.error(e);
+    showError(`Failed to load preview: ${e.message}. Make sure preview_data/ is in the same folder as this HTML.`);
+  }
+}
+boot();
+</script>
+</body>
+</html>
