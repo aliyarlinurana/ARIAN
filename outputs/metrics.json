@@ -1,0 +1,103 @@
+{
+  "generated_at": "2026-04-30T16:20:35.501015+04:00",
+  "prediction_horizon_days": 30,
+  "target": "Daily probability of a NASA FIRMS wildfire detection within the city risk area",
+  "selected_model": "XGBoost",
+  "selected_threshold": 0.05,
+  "temporal_split": {
+    "train": "< 2024-01-01",
+    "validation": "2024-01-01 to 2025-01-01",
+    "test": ">= 2025-01-01"
+  },
+  "leaderboard": [
+    {
+      "model": "XGBoost",
+      "threshold": 0.05,
+      "precision": 0.15902322811197142,
+      "recall": 0.909710391822828,
+      "f1": 0.2707224334600761,
+      "pr_auc": 0.33003305385144155,
+      "roc_auc": 0.845108218946248,
+      "positive_rate": 0.43362603305785125,
+      "selection_score": 0.4411121271199381
+    },
+    {
+      "model": "HistGradientBoosting",
+      "threshold": 0.05,
+      "precision": 0.17802354620049946,
+      "recall": 0.8500851788756388,
+      "f1": 0.2943952802359882,
+      "pr_auc": 0.3204989513972931,
+      "roc_auc": 0.8416457220495582,
+      "positive_rate": 0.36195764462809915,
+      "selection_score": 0.43508226660655547
+    },
+    {
+      "model": "LightGBM",
+      "threshold": 0.05,
+      "precision": 0.17100868403473615,
+      "recall": 0.8722316865417377,
+      "f1": 0.2859536442334543,
+      "pr_auc": 0.316223979553368,
+      "roc_auc": 0.8450527580603351,
+      "positive_rate": 0.38662190082644626,
+      "selection_score": 0.4339317719925458
+    },
+    {
+      "model": "CatBoost",
+      "threshold": 0.05,
+      "precision": 0.16284187362464633,
+      "recall": 0.8824531516183987,
+      "f1": 0.2749469214437367,
+      "pr_auc": 0.30972147077854634,
+      "roc_auc": 0.8459941649435312,
+      "positive_rate": 0.41076962809917356,
+      "selection_score": 0.4283809020417981
+    },
+    {
+      "model": "LogisticRegression",
+      "threshold": 0.05,
+      "precision": 0.1566412213740458,
+      "recall": 0.8739352640545145,
+      "f1": 0.2656654583117556,
+      "pr_auc": 0.2873352523726151,
+      "roc_auc": 0.8290814510948049,
+      "positive_rate": 0.4229080578512397,
+      "selection_score": 0.4127349489250987
+    },
+    {
+      "model": "RandomForest",
+      "threshold": 0.05,
+      "precision": 0.18239939827002632,
+      "recall": 0.8262350936967632,
+      "f1": 0.2988293284041898,
+      "pr_auc": 0.2576908505294256,
+      "roc_auc": 0.8235840395471821,
+      "positive_rate": 0.3433626033057851,
+      "selection_score": 0.40403810624606323
+    },
+    {
+      "model": "ExtraTrees",
+      "threshold": 0.05,
+      "precision": 0.15208455666470932,
+      "recall": 0.8824531516183987,
+      "f1": 0.2594540445780115,
+      "pr_auc": 0.2614276694883308,
+      "roc_auc": 0.8295790518759226,
+      "positive_rate": 0.43982438016528924,
+      "selection_score": 0.4001504528622036
+    }
+  ],
+  "feature_count": 234,
+  "risk_levels": {
+    "Low": "< 15%",
+    "Moderate": "15% to 35%",
+    "High": "35% to 60%",
+    "Extreme": ">= 60%"
+  },
+  "data_sources": [
+    "NASA FIRMS MODIS/VIIRS",
+    "Open-Meteo ERA5/ERA5-Land",
+    "Open-Elevation/static geography"
+  ]
+}

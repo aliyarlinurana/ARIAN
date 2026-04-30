@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ARIAN Wildfire Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="topbar">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <span>ARIAN</span>
+        </div>
+        <div class="status-pill" id="modelStatus">Loading forecast</div>
+      </nav>
+      <section class="hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Azerbaijan Regional Intelligence for Atmospheric & Wildfire Networks</p>
+          <h1>30-Day Wildfire Risk Intelligence</h1>
+          <p class="tagline">
+            A climate-aware monitoring dashboard that turns satellite fire history and weather forecasts into clear regional risk signals.
+          </p>
+        </div>
+        <div class="hero-stats" id="heroStats"></div>
+      </section>
+    </header>
+
+    <main>
+      <section class="section intro-section">
+        <div>
+          <p class="section-kicker">Purpose</p>
+          <h2>Monitoring environmental risk before it becomes damage</h2>
+        </div>
+        <p>
+          ARIAN helps make wildfire risk easier to understand across Azerbaijan. It combines NASA fire detections,
+          weather forecasts, and local climate conditions so teams can watch heat, wind, rainfall, and vegetation stress
+          together instead of as isolated numbers.
+        </p>
+      </section>
+
+      <section class="dashboard-grid">
+        <div class="map-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Interactive Map</p>
+              <h2>Azerbaijan risk zones</h2>
+            </div>
+            <input type="date" id="datePicker" />
+          </div>
+          <div id="map"></div>
+        </div>
+
+        <aside class="side-panel" id="regionPanel">
+          <p class="section-kicker">Selected Region</p>
+          <h2 id="selectedRegion">Baku</h2>
+          <div class="risk-band" id="riskBand">
+            <span id="riskLevel">Low</span>
+            <strong id="riskScore">0%</strong>
+          </div>
+          <div class="metric-grid">
+            <div><span>Temperature</span><strong id="panelTemp">--</strong></div>
+            <div><span>Wind</span><strong id="panelWind">--</strong></div>
+            <div><span>Humidity</span><strong id="panelHumidity">--</strong></div>
+            <div><span>Confidence</span><strong id="panelConfidence">--</strong></div>
+          </div>
+          <p class="summary" id="panelSummary"></p>
+          <p class="warning" id="panelWarning"></p>
+          <div id="trendChart" class="mini-chart"></div>
+        </aside>
+      </section>
+
+      <section class="section analytics-section">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">30-Day View</p>
+            <h2>Risk calendar</h2>
+          </div>
+          <select id="regionSelect"></select>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+      </section>
+
+      <section class="charts-grid">
+        <div class="chart-panel">
+          <div class="panel-heading compact">
+            <div>
+              <p class="section-kicker">Trend</p>
+              <h2>Forecast risk over time</h2>
+            </div>
+          </div>
+          <div id="mainTrendChart"></div>
+        </div>
+        <div class="chart-panel">
+          <div class="panel-heading compact">
+            <div>
+              <p class="section-kicker">Weather Drivers</p>
+              <h2>Temperature and wind</h2>
+            </div>
+          </div>
+          <div id="weatherChart"></div>
+        </div>
+      </section>
+
+      <section class="section table-section">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Predictions</p>
+            <h2>Filtered forecast table</h2>
+          </div>
+          <div class="filters">
+            <select id="riskFilter">
+              <option value="All">All risk levels</option>
+              <option value="Low">Low</option>
+              <option value="Moderate">Moderate</option>
+              <option value="High">High</option>
+              <option value="Extreme">Extreme</option>
+            </select>
+            <input type="date" id="tableDateFilter" />
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Region</th>
+                <th>Risk</th>
+                <th>Probability</th>
+                <th>Temp</th>
+                <th>Wind</th>
+                <th>Humidity</th>
+              </tr>
+            </thead>
+            <tbody id="forecastTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div>
+        <h2>ARIAN Wildfire Intelligence</h2>
+        <p>Climate and environmental risk monitoring for Azerbaijan.</p>
+      </div>
+      <div>
+        <span>Data sources: NASA FIRMS, Open-Meteo, Open-Elevation, static geography</span>
+        <span>2026 · Team placeholder</span>
+      </div>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
