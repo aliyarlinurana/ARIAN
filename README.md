@@ -416,23 +416,23 @@ Each notebook also installs missing packages automatically in its first code cel
 ## 11. Cities Covered
 
 | City | Latitude | Longitude | Key Characteristics |
-|------|----------|-----------|-------------------|
-| Baku | 40.409 | 49.867 | Capital, highest urban %, highest fire rate (30.1%) |
-| Sumqayit | 40.590 | 49.669 | Industrial, coastal |
-| Ganja | 40.683 | 46.361 | Western highlands |
-| Mingachevir | 40.764 | 47.060 | Central lowlands |
-| Shirvan | 39.932 | 48.930 | Kura-Araxes lowland |
-| Lankaran | 38.752 | 48.848 | Southern subtropical |
-| Shaki | 41.198 | 47.169 | Northern foothills |
-| Nakhchivan | 39.209 | 45.412 | Exclave, arid continental |
-| Yevlakh | 40.618 | 47.150 | Central plains |
-| Quba | 41.361 | 48.526 | Northern mountainous |
-| Khachmaz | 41.464 | 48.806 | Northeastern coastal |
-| Gabala | 40.998 | 47.847 | Highest elevation (996 m), most forested (50.5%) |
-| Shamakhi | 40.630 | 48.641 | Mountain plateau |
-| Jalilabad | 39.209 | 48.299 | Southern lowlands |
-| Barda | 40.374 | 47.127 | Karabakh region |
-| Zaqatala | 41.630 | 46.643 | Northwestern, lowest fire rate (3.5%) |
+|---|---:|---:|---|
+| Baku | 40.409 | 49.867 | Capital city; highest urbanization; highest observed fire rate |
+| Shabran | 41.206 | 48.987 | Affected by major wildfire events during 2021–2022 |
+| Ganja | 40.683 | 46.361 | Western highland city; important regional center |
+| Mingachevir | 40.764 | 47.060 | Central lowland city near the Kura River and Mingachevir Reservoir |
+| Shirvan | 39.932 | 48.930 | Located in the Kura-Araz lowland; dry lowland climate |
+| Lankaran | 38.752 | 48.848 | Southern subtropical coastal region |
+| Shaki | 41.198 | 47.169 | Northern foothill region with forest and mountain influence |
+| Nakhchivan | 39.209 | 45.412 | Exclave region; arid continental climate |
+| Yevlakh | 40.618 | 47.150 | Central plains; dry lowland conditions |
+| Quba | 41.361 | 48.526 | Northern mountainous region |
+| Khachmaz | 41.464 | 48.806 | Northeastern coastal region near the Caspian Sea |
+| Gabala | 40.998 | 47.847 | Highest elevation among selected cities; highly forested area |
+| Shamakhi | 40.630 | 48.641 | Mountain plateau region |
+| Jalilabad | 39.209 | 48.299 | Southern lowland region with agricultural land use |
+| Barda | 40.374 | 47.127 | Karabakh region; central lowland area |
+| Zaqatala | 41.630 | 46.643 | Northwestern mountain-foothill region; lowest observed fire rate |
 
 Fire labels are aggregated daily within a **20 km radius** of each city centroid.
 
