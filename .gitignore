@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# CatBoost training artifacts
+catboost_info/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Requests HTTP cache (large, regenerated on run)
+data/raw/.cache.sqlite
+
+# Temp files
+*.tmp
+*.bak

@@ -1,7 +1,7 @@
 # ARIAN — Azerbaijan Regional Intelligence for Atmospheric & Wildfire Networks
 
 > **End-to-end wildfire risk intelligence pipeline for 16 Azerbaijani cities.**
-> Four sequential Jupyter notebooks covering data ingestion, exploratory analysis, weather forecasting, and wildfire prediction — producing interactive geospatial risk maps and automated hypothesis reports.
+> Six sequential Jupyter notebooks + a shared `src/` Python module covering data ingestion, exploratory analysis & feature engineering, weather forecasting, wildfire detection (multi-model + Optuna + SHAP), 30-day risk prediction with interactive maps, and climate trend analysis — producing publication-quality visualizations, automated hypothesis reports, and demo-ready geospatial dashboards.
 
 Runs identically on **Google Colab** and **local environments** (JupyterLab / VS Code) with zero configuration changes.
 
@@ -14,25 +14,32 @@ Runs identically on **Google Colab** and **local environments** (JupyterLab / VS
 3. [10-Day Project Timeline](#3-10-day-project-timeline)
 4. [Pipeline Architecture](#4-pipeline-architecture)
 5. [Notebook Descriptions](#5-notebook-descriptions)
-6. [Folder Structure](#6-folder-structure)
-7. [Setup & Execution](#7-setup--execution)
-8. [Dependencies](#8-dependencies)
-9. [Cities Covered](#9-cities-covered)
-10. [Data Sources & Provenance](#10-data-sources--provenance)
-11. [Key Outputs & Deliverables](#11-key-outputs--deliverables)
+6. [Shared `src/` Module](#6-shared-src-module)
+7. [Folder Structure](#7-folder-structure)
+8. [Key Definitions & Glossary](#8-key-definitions--glossary)
+9. [Setup & Execution](#9-setup--execution)
+10. [Dependencies](#10-dependencies)
+11. [Cities Covered](#11-cities-covered)
+12. [Data Sources & Provenance](#12-data-sources--provenance)
+13. [Key Outputs & Deliverables](#13-key-outputs--deliverables)
+14. [Evaluation Protocol & Model Targets](#14-evaluation-protocol--model-targets)
 
 ---
 
 ## 1. Project Overview
 
-**ARIAN** builds a complete data science pipeline that:
+**ARIAN** builds a complete, production-grade data science pipeline that:
 
-- **Ingests** multi-source data: Open-Meteo weather APIs (historical + forecast), NASA FIRMS satellite fire detections (MODIS C6.1, VIIRS C2), and Open-Elevation terrain data
-- **Explores & engineers** 90+ features through city-by-city statistical analysis, FWI indices, lag/rolling aggregates, and cyclical time encodings
-- **Forecasts** 9 weather variables hourly over a 30-day horizon using a Prophet × SARIMA × XGBoost stacking ensemble (144 model bundles: 16 cities × 9 features)
-- **Predicts** hourly wildfire risk probabilities using a calibrated XGBoost classifier trained on 2M+ hourly observations
-- **Generates** automated hypothesis reports comparing projected conditions against historical baselines
-- **Visualizes** results through interactive Folium risk maps, Plotly dashboards, and city-level timelines
+- **Ingests** multi-source data: Open-Meteo weather APIs (ERA5 + ERA5-Land, historical + forecast), NASA FIRMS satellite fire detections (MODIS C6.1, VIIRS C2 — 3 sensors), Open-Elevation terrain, and GEE vegetation indices
+- **Explores & engineers** 200+ features through city-by-city statistical analysis, FWI fire weather indices, VPD/dew point/heat index calculations, lag/rolling aggregates (1–30 day), Prophet seasonal residuals, and cyclical time encodings
+- **Forecasts** 8 weather variables over daily (30-day) and hourly (168-hour) horizons using Prophet + XGBoost stacking ensembles with multi-model comparison (Ridge, ElasticNet, RF, ExtraTrees, HistGBR, XGB, LGB, CatBoost)
+- **Detects wildfires** using 8+ classification models (LogReg, RF, ExtraTrees, HistGBC, XGBoost, LightGBM, CatBoost, BalancedRF) with cost-sensitive learning, conservative SMOTE, Optuna hyperparameter tuning (precision-constrained), isotonic probability calibration, and SHAP explainability
+- **Predicts 30-day wildfire risk** per city using weather forecasts + trained fire model — 4-tier risk classification (Low / Moderate / High / Extreme)
+- **Generates** interactive Folium risk maps (date-selectable + heatmap layers), Plotly animated dashboards, city-level timelines, and automated hypothesis reports
+- **Analyses climate trends** — forecast vs last year, vs decade average, long-term warming signals, jury-ready conclusions
+- **Evaluates rigorously** with 3-way temporal split (train/val/test), overfitting diagnostics, confusion matrices, PR-AUC curves, and feature importance rankings
+
+All reusable functions are factored into a shared **`src/` Python module** (configuration, feature builders, model factories, evaluation metrics, visualization helpers) that every notebook imports — keeping the notebooks focused on analysis narrative while the logic stays DRY and testable.
 
 ---
 
@@ -40,11 +47,11 @@ Runs identically on **Google Colab** and **local environments** (JupyterLab / VS
 
 | Team Member | Role | Assigned Tasks |
 |---|---|---|
-| **Asif Habilov** | Data Ingestion / Data Analysis / ML Engineering | T1 — Data ingestion pipeline (NB1); T5 — XGBoost fire classifier & calibration (NB4); T8 — ML model optimization & evaluation |
+| **Asif Habilov** | Data Ingestion / ML Engineering / Architecture | T1 — Data ingestion pipeline (NB1); T5 — Multi-model fire classifier & calibration (NB4); T8 — ML optimization & src/ module design |
 | **Raul Ibrahimov** | Data Ingestion / Presentation Design | T2 — Fire label normalization & static geography (NB1); T10 — Presentation design & delivery; T11 — Documentation & README |
 | **Ilaha Shafizada** | Data Analysis / Feature Engineering | T3 — Exploratory data analysis (NB2 §1–§5); T6 — FWI & lag feature engineering (NB2 §7); T9 — Outlier detection & data quality |
 | **Nurana Aliyarli** | Data Analysis / Feature Engineering | T4 — Fire-weather relationship analysis (NB2 §6); T7 — Calendar & rolling feature engineering (NB2 §7); T9 — Outlier detection & data quality |
-| **Aysu Mammadova** | Data Analysis / ML Engineering | T5 — Weather forecasting ensemble (NB3); T8 — Wildfire prediction & hypothesis testing (NB4); T12 — Geospatial visualization |
+| **Aysu Mammadova** | Data Analysis / ML Engineering | T5 — Weather forecasting ensemble (NB3); T8 — Risk prediction & hypothesis testing (NB5–NB6); T12 — Geospatial visualization |
 
 ### Task Breakdown
 
@@ -54,14 +61,14 @@ Runs identically on **Google Colab** and **local environments** (JupyterLab / VS
 | T2 | Fire Labels & Geography | NASA FIRMS archive parsing, daily fire-label normalization (20 km buffer), Open-Elevation terrain fetch | Raul | NB1 |
 | T3 | Exploratory Data Analysis | Per-city quality audit, descriptive statistics, distribution analysis, correlation heatmaps, seasonal decomposition | Ilaha | NB2 |
 | T4 | Fire-Weather Analysis | Fire-day vs. non-fire-day comparison per city, Welch's t-test for significance, feature–fire correlation ranking | Nurana | NB2 |
-| T5 | Weather Forecasting Ensemble | Prophet + SARIMA + XGBoost stacking per city per feature, non-negative SLSQP weight optimization, 30-day hourly predictions | Aysu | NB3 |
-| T6 | FWI Feature Engineering | FFMC, DMC, DC, ISI, BUI, FWI index computation; dry-spell tracking; rolling rain/temperature/humidity aggregates | Ilaha | NB2 |
-| T7 | Temporal Feature Engineering | Lag features (1–14 day), rolling statistics (7/14/30 day), cyclical calendar encodings, seasonal flags | Nurana | NB2 |
-| T8 | Wildfire Prediction & Evaluation | XGBoost classifier with isotonic calibration, PR-AUC evaluation, operational threshold selection, 30-day risk scoring | Asif, Aysu | NB4 |
+| T5 | Weather Forecasting Ensemble | Prophet + XGBoost stacking per city per feature, multi-model comparison, 30-day predictions | Aysu | NB3 |
+| T6 | FWI Feature Engineering | FFMC, DMC, DC, ISI, BUI, FWI index computation; VPD, dew point, heat index; dry-spell tracking | Ilaha | NB2 |
+| T7 | Temporal Feature Engineering | Lag features (1–30 day), rolling statistics (3/7/14/30 day), cyclical calendar encodings, seasonal flags | Nurana | NB2 |
+| T8 | Wildfire Detection & Evaluation | 8 classifiers + Optuna tuning + SHAP, isotonic calibration, PR-AUC evaluation, threshold selection | Asif, Aysu | NB4 |
 | T9 | Data Quality & Outlier Detection | IQR-based outlier analysis per city, missing-value audit, data integrity validation | Ilaha, Nurana | NB2 |
 | T10 | Presentation Design & Delivery | Slide deck creation, narrative structure, visual design, rehearsal, final presentation | Raul | — |
-| T11 | Documentation | README, code comments, pipeline documentation, reproducibility guide | Raul | — |
-| T12 | Geospatial Visualization | Folium risk maps (date-selectable), Plotly heatmaps, city-level fire-risk timelines, hypothesis report formatting | Aysu | NB3, NB4 |
+| T11 | Documentation & `src/` Module | README, code comments, shared module documentation, reproducibility guide | Raul, Asif | — |
+| T12 | Geospatial Visualization | Folium risk maps, Plotly animated dashboards, city-level timelines, climate report figures | Aysu | NB5, NB6 |
 
 ---
 
@@ -72,12 +79,12 @@ Runs identically on **Google Colab** and **local environments** (JupyterLab / VS
 | **1** | Data Collection | Open-Meteo API integration, FIRMS archive loading, legacy CSV fallback | Asif, Raul |
 | **2** | Data Collection | Static geography fetch, fire-label normalization, `master_daily.parquet` finalized | Asif, Raul |
 | **3** | EDA & Feature Engineering | Per-city quality audit, descriptive statistics, distribution analysis | Ilaha, Nurana |
-| **4** | EDA & Feature Engineering | Correlation analysis, seasonal decomposition, fire-weather comparison (t-tests) | Ilaha, Nurana, Aysu |
-| **5** | Feature Engineering | FWI indices, lag/rolling features, calendar encodings; `engineered_daily.parquet` finalized | Ilaha, Nurana |
-| **6** | ML — Weather Forecasting | Prophet + SARIMA + XGBoost stacking ensemble per city; `phase3_weather_hourly_30d.parquet` | Asif, Aysu |
-| **7** | ML — Wildfire Prediction | XGBoost fire classifier, isotonic calibration, evaluation metrics | Asif, Aysu |
-| **8** | Hypothesis Testing & Visualization | Automated hypothesis generation, Folium risk maps, Plotly dashboards | Asif, Aysu |
-| **9** | Integration & Presentation Prep | End-to-end pipeline validation, slide deck design, narrative drafting | All team |
+| **4** | EDA & Feature Engineering | Correlation analysis, seasonal decomposition, fire-weather t-tests | Ilaha, Nurana, Aysu |
+| **5** | Feature Engineering | FWI indices, VPD/dew point, lag/rolling features, calendar encodings → `engineered_daily.parquet` | Ilaha, Nurana |
+| **6** | ML — Weather Forecasting | Prophet + XGBoost + multi-model ensemble per city → `weather_forecast_30d.parquet` | Asif, Aysu |
+| **7** | ML — Wildfire Detection | 8-model comparison, Optuna tuning, SHAP, isotonic calibration | Asif, Aysu |
+| **8** | Risk Prediction & Visualization | 30-day risk scoring, Folium/Plotly maps, climate trend analysis | Asif, Aysu |
+| **9** | Integration & Presentation Prep | End-to-end pipeline validation, `src/` module cleanup, slide deck | All team |
 | **10** | **Presentation** | Final rehearsal and delivery | All team |
 
 ---
@@ -85,33 +92,55 @@ Runs identically on **Google Colab** and **local environments** (JupyterLab / VS
 ## 4. Pipeline Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                         ARIAN Pipeline Flow                              │
-│                                                                          │
-│  ┌──────────────┐   ┌──────────────────┐    ┌──────────────────────────┐ │
-│  │   NB1        │   │   NB2            │    │   NB3                    │ │
-│  │   Data       │──▶│   EDA &          │    │   Weather Forecasting    │ │
-│  │   Ingestion  │   │   Feature Eng.   │    │   (Prophet+SARIMA+XGB)   │ │
-│  └──────┬───────┘   └──────────────────┘    └───────────┬────────────┬─┘ │
-│         │                                               │            │   │
-│         │           weather_hourly.parquet              │            │   │
-│         ├──────────────────────────────────────────────▶│            │   │
-│         │                                               │            │   │
-│         │  master_daily.parquet                         │            │   │
-│         │  fires_daily.parquet                          ▼            │   │
-│         │  static_geography.parquet      phase3_weather_hourly_30d   │   │
-│         │                                               │            │   │
-│         │         ┌────────────────────────────────────┐│            │   │
-│         └────────▶│   NB4                              ││            │   │
-│                   │   Wildfire Prediction &            │◀────────────┘   │
-│                   │   Hypothesis Testing               │                 │
-│                   │   (XGBoost + Calibration)          │                 │
-│                   └────────────┬───────────────────────┘                 │
-│                                │                                         │
-│                                ▼                                         │
-│                   phase4_wildfire_hourly_30d.parquet                     │
-│                   Risk Maps · Dashboards · Hypotheses                    │
-└──────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                ARIAN Pipeline Flow                        │
+│       Run: NB1 → NB2 → NB3 → NB4 → NB5 → NB6              │
+│                                                           │
+│  ┌─────────────────────────────────┐                      │
+│  │  NB1 — Data Ingestion           │                      │
+│  │  Open-Meteo + FIRMS + GEE       │                      │
+│  │  24h smart freshness check      │                      │
+│  └───────────────┬─────────────────┘                      │
+│                  │                                        │
+│                  ▼                                        │
+│   master_daily + master_hourly + weather_hourly.parquet   │
+│                  │                                        │
+│                  ▼                                        │
+│  ┌─────────────────────────────────┐                      │
+│  │  NB2 — EDA & Feature Eng.       │                      │
+│  │  200+ features: FWI, VPD,       │                      │
+│  │  lags, rolling, Prophet resid   │                      │
+│  └───────────────┬─────────────────┘                      │
+│                  │                                        │
+│                  ▼                                        │
+│   engineered_daily + engineered_hourly.parquet            │
+│                  │                                        │
+│         ┌────────┴────────────────┐                       │
+│         ▼                         ▼                       │
+│  ┌──────────────┐  ┌──────────────────────────────┐       │
+│  │  NB3 Weather │  │  NB4 Wildfire Detection      │       │
+│  │  Prophet+XGB │  │  8 models + Optuna + SHAP    │       │
+│  │  30d + 168h  │  │  3-way split, calibration    │       │
+│  └──────┬───────┘  └──────────────┬───────────────┘       │
+│         │                         │                       │
+│         └──────────┬──────────────┘                       │
+│                    ▼                                      │
+│  ┌──────────────────────────────────────┐                 │
+│  │  NB5 — Risk Prediction & Dashboard   │                 │
+│  │  30-day risk + Folium + Plotly maps  │                 │
+│  └──────────────────┬───────────────────┘                 │
+│                     ▼                                     │
+│  ┌──────────────────────────────────────┐                 │
+│  │  NB6 — Climate Report                │                 │
+│  │  Trends + comparisons + jury report  │                 │
+│  └──────────────────────────────────────┘                 │
+│                                                           │
+│  ┌──────────────────────────────────────┐                 │
+│  │  src/ — Shared Python Module         │                 │
+│  │  config · features · modeling ·      │                 │
+│  │  evaluation · visualization · utils  │                 │
+│  └──────────────────────────────────────┘                 │
+└──────────────────────────────────────────── ──────────────┘
 ```
 
 ---
@@ -123,96 +152,214 @@ Runs identically on **Google Colab** and **local environments** (JupyterLab / VS
 | Aspect | Detail |
 |--------|--------|
 | **Purpose** | Collect, unify, and persist all raw data for the pipeline |
-| **Weather Source** | Open-Meteo Archive API (ERA5-Land, hourly, 2012–present) + 16-day live forecast |
+| **Weather Source** | Open-Meteo Archive API (ERA5 + ERA5-Land, hourly, 2012–present) + 16-day live forecast |
 | **Weather Variables** | Temperature, humidity, rain, wind speed/direction, pressure, solar radiation, soil temperature, soil moisture (9 features) |
 | **Fire Source** | NASA FIRMS CSVs (MODIS C6.1, SUOMI-NPP VIIRS, J1 VIIRS, J2 VIIRS) |
 | **Fire Normalization** | Binary daily label per city within a 20 km buffer radius |
-| **Geography** | Open-Elevation API + derived slope; land-cover and population from supplementary CSVs |
+| **Geography** | Open-Elevation API + derived slope; land-cover, population, road network from supplementary CSVs; GEE vegetation indices (NDVI, NDBI) with CSV fallback |
 | **Fallback Logic** | Local parquet cache → legacy `merged.csv` → API (with retry/rate-limit handling) |
-| **Outputs** | `master_daily.parquet` (36,928 rows × 29 cols), `weather_hourly.parquet` (886K+ rows), `fires_daily.parquet`, `cities.parquet`, `static_geography.parquet` |
+| **Atomic Writes** | Writes to `.tmp.parquet` then renames — prevents corruption on failure |
+| **Outputs** | `master_daily.parquet`, `master_hourly.parquet`, `weather_hourly.parquet`, `fires_daily.parquet`, `cities.parquet`, `static_geography.parquet` |
 | **Runtime** | ~5–15 min (cached) |
 
-### NB2 — EDA & Data Engineering (`02_Weather_Forecasting.ipynb`)
+### NB2 — EDA & Feature Engineering (`02_EDA_FeatureEngineering.ipynb`)
 
 | Aspect | Detail |
 |--------|--------|
-| **Purpose** | Comprehensive city-by-city analysis and feature engineering |
-| **Quality Audit** | Per-city missing-value report across all 12 weather columns |
+| **Purpose** | Comprehensive city-by-city analysis + feature engineering at both daily and hourly granularity |
+| **Quality Audit** | Per-city missing-value report, duplicate detection, dtype checks |
 | **Descriptive Stats** | Mean, std, quartiles, skewness, kurtosis per city per feature |
-| **Visualizations** | Boxplots, histograms, correlation heatmaps, seasonal decomposition, monthly time series |
-| **Fire-Weather Analysis** | Welch's t-test comparing fire-day vs. non-fire-day weather per city (111/192 tests significant) |
-| **Feature Engineering** | FWI family (FFMC, DMC, DC, ISI, BUI, FWI), dry-spell tracking, lag features (1–14 day), rolling stats (7/14/30 day), cyclical calendar encodings |
-| **Outlier Detection** | IQR-based per-city per-feature outlier counts |
-| **Outputs** | `engineered_daily.parquet` (83,392 rows × 90 cols), per-city profiles CSV, correlation heatmaps, fire comparison CSV |
+| **Visualizations** | Boxplots, histograms, correlation heatmaps, seasonal decomposition, diurnal cycles |
+| **Fire-Weather Analysis** | Welch's t-test comparing fire-day vs. non-fire-day weather per city |
+| **Feature Engineering** | FWI family (FFMC, DMC, DC, ISI, BUI, FWI), VPD, dew point, heat index, drought proxy, dry-spell tracking, extreme-temperature flags, lag features (1–30 day), rolling stats (3/7/14/30 day), Prophet seasonal residuals, cyclical calendar encodings, historical fire features, vegetation interactions, anomaly features |
+| **Outlier Detection** | IQR-based per-city per-feature outlier counts with 1st/99th percentile winsorization |
+| **Outputs** | `engineered_daily.parquet` (200+ features), `engineered_hourly.parquet`, per-city profiles CSV, correlation heatmaps |
 | **Runtime** | ~3–5 min |
 
-### NB3 — Weather Prediction (`03_Fire_Risk_Bridge.ipynb`)
+### NB3 — Weather Forecasting (`03_Weather_TimeSeries.ipynb`)
 
 | Aspect | Detail |
 |--------|--------|
-| **Purpose** | Forecast all 9 weather features hourly for 30 days using a stacking ensemble |
-| **Models** | **Prophet** (yearly/weekly/daily seasonality, Azerbaijan holidays), **SARIMA** (downsampled 6-hourly for tractability), **XGBoost** (recursive multi-step with lag/rolling features) |
-| **Stacking** | Non-negative weight optimization via SLSQP on a 3-day validation window |
-| **Scale** | 144 model bundles (16 cities × 9 features), 7-day test holdout for evaluation |
-| **Visualization** | Interactive Folium map with date-selectable layers, temperature-coded city markers |
-| **Outputs** | `phase3_weather_hourly_30d.parquet` (11,520 rows), `phase3_weather_leaderboard.csv`, `phase3_weather_map.html` |
+| **Purpose** | Forecast key weather variables at daily (30-day) and hourly (168-hour) horizons |
+| **Daily Models** | Prophet (yearly/weekly seasonality, Azerbaijan holidays) + XGBoost (recursive multi-step with lag/rolling features) |
+| **Hourly Models** | Prophet (daily seasonality) + XGBoost (hourly lags) |
+| **Stacking** | Weighted ensemble — weight optimized per city/variable on holdout |
+| **Multi-Model Comparison** | Ridge, ElasticNet, RF, ExtraTrees, HistGBR, XGB, LGB, CatBoost evaluated on holdout with MAE/RMSE leaderboard |
+| **Scale** | 128+ model bundles (16 cities × 8 targets) |
+| **Outputs** | `weather_forecast_30d.parquet`, `weather_forecast_168h.parquet`, `weather_leaderboard.csv` |
 | **Runtime** | ~60–120 min |
 
-### NB4 — Wildfire Prediction & Hypothesis Testing (`04_Evaluation_and_Geospatial.ipynb`)
+### NB4 — Wildfire Detection (`04_Wildfire_Detection.ipynb`)
 
 | Aspect | Detail |
 |--------|--------|
-| **Purpose** | Train a fire classifier, score the 30-day forecast, and generate automated hypotheses |
-| **Classifier** | XGBoost (1500 estimators, early stopping) with isotonic calibration via `FrozenEstimator` |
-| **Training Data** | 2M+ hourly observations with 33 features (weather + geography + temporal + FWI) |
-| **Evaluation** | PR-AUC, ROC-AUC, F1/Precision/Recall at operational threshold; 85/15 time-respecting split |
-| **Risk Scoring** | 30-day hourly fire-risk probabilities with 4-tier classification (Low / Moderate / High / Extreme) |
-| **Hypothesis Testing** | 5 automated hypotheses: rainfall vs. last year, rainfall vs. decade, wildfire frequency change, temperature change, humidity change |
-| **Visualizations** | Folium risk map (date-selectable + heatmap layers), Plotly City × Date heatmap, per-city hourly risk timelines |
-| **Outputs** | `phase4_wildfire_hourly_30d.parquet` (11,520 rows), `phase4_wildfire_scores.csv`, `phase4_hypotheses.csv`, `phase4_risk_map.html`, `phase4_xgb_fire.joblib` |
-| **Runtime** | ~5–10 min |
+| **Purpose** | Production-quality multi-model wildfire classification with anti-overfitting safeguards |
+| **3-Way Split** | Train (< 2024), Validation (2024), Test (≥ 2025) — test **never** seen during training or tuning |
+| **Feature Pruning** | Remove near-zero-variance + highly correlated (r > 0.95) columns to reduce noise |
+| **8 Base Models** | LogReg, RF, ExtraTrees, HistGBC, XGBoost, LightGBM, CatBoost, BalancedRF — all cost-sensitive |
+| **SMOTE** | Conservative ratios (0.2–0.3) only on top gradient boosters; SMOTEENN comparison |
+| **Optuna Tuning** | 50 trials per top-2 model; precision floor ≥ 12 %; scale_pos_weight capped at 1.5× |
+| **Threshold** | Tuned on **validation** set; minimum precision ≥ 10 % |
+| **Calibration** | Isotonic probability calibration on validation set for meaningful risk scores |
+| **Overfitting Monitor** | Train-vs-val F1 gap printed for every model; gap > 15 % flagged |
+| **Explainability** | SHAP TreeExplainer + top-25 feature importance chart |
+| **Outputs** | `models/wildfire/best_fire_model.joblib`, `reports/metrics/fire_leaderboard.csv`, SHAP plots |
+| **Runtime** | ~10–20 min |
+
+### NB5 — Risk Prediction & Dashboard (`05_Risk_Prediction_Dashboard.ipynb`)
+
+| Aspect | Detail |
+|--------|--------|
+| **Purpose** | Predict 30-day wildfire risk per city + generate interactive maps for demo |
+| **Features** | Replicates NB2 feature engineering on forecast data with historical lag proxies |
+| **Risk Levels** | Low (<15 %), Moderate (15–35 %), High (35–60 %), Extreme (>60 %) |
+| **Folium Maps** | One HTML map per forecast date — colour-coded markers with click popups |
+| **Plotly Dashboard** | Animated scatter-geo with date slider — all cities, all dates |
+| **Weather Maps** | Separate animated maps for temperature, humidity, wind, precipitation |
+| **Outputs** | `wildfire_risk_30d.parquet`, `reports/maps/*.html` |
+| **Runtime** | ~2–5 min |
+
+### NB6 — Climate Report (`06_Climate_Report.ipynb`)
+
+| Aspect | Detail |
+|--------|--------|
+| **Purpose** | Answer jury-ready climate shift and fire risk trend questions |
+| **vs Last Year** | Forecast temperature and risk compared to same period last year |
+| **vs Decade** | Temperature anomaly relative to 2015–2024 average |
+| **Long-term Trends** | Annual temperature, extreme heat days, precipitation, fire count trends |
+| **Risk Outlook** | Which cities have increasing risk and why |
+| **Jury Summary** | Non-technical conclusions with key statistics |
+| **Outputs** | `reports/figures/climate_*.png`, `reports/metrics/climate_summary.csv` |
+| **Runtime** | ~1–2 min |
 
 ---
 
-## 6. Folder Structure
+## 6. Shared `src/` Module
+
+All reusable logic is factored into a thin Python package that every notebook imports. This keeps notebook cells focused on analysis narrative, avoids code duplication, and makes functions independently testable.
+
+```python
+from src.config import ROOT, PROCESSED, CITIES, TARGET_COL, ...
+from src.features import add_calendar_features, build_lag_features, compute_vpd, ...
+from src.evaluation import fire_metrics, find_optimal_threshold, build_fire_leaderboard
+from src.visualization import plot_confusion_matrix, plot_pr_curves, plot_feature_importance
+```
+
+| Module | Purpose | Key Functions |
+|--------|---------|---------------|
+| **`config.py`** | Central paths, constants, city coordinates, column definitions | `detect_project_root()`, `ensure_dirs()`, `CITIES`, `TARGET_COL`, `DROP_COLS`, `RANDOM_SEED` |
+| **`features.py`** | All feature engineering builders | `add_calendar_features()`, `build_lag_features()`, `build_rolling_features()`, `compute_fwi_proxy()`, `compute_vpd()`, `compute_dew_point()`, `compute_heat_index()`, `add_wildfire_weather_features()`, `add_historical_fire_features()`, `add_anomaly_features()` |
+| **`modeling.py`** | Model factory functions for weather and fire classifiers | `get_weather_models()`, `get_fire_models()` |
+| **`evaluation.py`** | Metrics, threshold tuning, leaderboard construction | `fire_metrics()`, `find_optimal_threshold()`, `build_fire_leaderboard()`, `weather_metrics()` |
+| **`visualization.py`** | Reusable plotting helpers | `plot_confusion_matrix()`, `plot_pr_curves()`, `plot_feature_importance()`, `plot_leaderboard()` |
+| **`utils.py`** | Data loading, model saving, misc helpers | `load_parquet_safe()`, `save_model()`, `load_model()` |
+
+---
+
+## 7. Folder Structure
 
 ```
-ARIAN_ASIF/
-├── notebooks/                            Run in order: 01 → 02 → 03 → 04
-│   ├── 01_Data_Ingestion.ipynb           Phase 1 — Data collection & unification
-│   ├── 02_Weather_Forecasting.ipynb      Phase 2 — EDA & feature engineering
-│   ├── 03_Fire_Risk_Bridge.ipynb         Phase 3 — Weather forecasting ensemble
-│   └── 04_Evaluation_and_Geospatial.ipynb Phase 4 — Wildfire prediction & viz
+WildFire-Prediction/
+├── notebooks/                              Run in order: NB1 → NB2 → NB3 → NB4 → NB5 → NB6
+│   ├── 01_Data_Ingestion.ipynb             Data collection & unification
+│   ├── 02_EDA_FeatureEngineering.ipynb     EDA + FWI + VPD + lag/rolling + Prophet
+│   ├── 03_Weather_TimeSeries.ipynb         Prophet + XGBoost + multi-model forecasting
+│   ├── 04_Wildfire_Detection.ipynb         8 models + SMOTE + Optuna + SHAP + calibration
+│   ├── 05_Risk_Prediction_Dashboard.ipynb  30-day risk + Folium + Plotly maps
+│   ├── 06_Climate_Report.ipynb             Climate trends + jury report
+│   └── _archive/                           Previous notebook versions (kept for reference)
+│
+├── src/                                    Shared Python module (imported by all notebooks)
+│   ├── __init__.py
+│   ├── config.py                           Central paths, constants, city list
+│   ├── features.py                         Feature engineering (VPD, FWI, lags, rolling)
+│   ├── modeling.py                         Model factories (weather + fire classifiers)
+│   ├── evaluation.py                       Metrics, threshold tuning, leaderboards
+│   ├── visualization.py                    Plotting helpers (CM, PR curves, SHAP)
+│   └── utils.py                            Data loading, model saving
 │
 ├── data/
 │   ├── raw/
-│   │   ├── firms/                        NASA FIRMS sensor archives
-│   │   │   ├── modis_c61/
-│   │   │   ├── suomi_viirs_c2/
-│   │   │   ├── j1_viirs_c2/
-│   │   │   └── j2_viirs_c2/
-│   │   └── legacy/                       Fallback: merged.csv + supplementary CSVs
-│   ├── processed/                        master_daily.parquet, fires_daily.parquet,
-│   │                                     engineered_daily.parquet
-│   └── reference/                        cities.parquet, static_geography.parquet
+│   │   ├── firms/                          NASA FIRMS sensor archives
+│   │   │   ├── MODIS C6.1/
+│   │   │   ├── SUOMI VIIRS C2/
+│   │   │   └── J1 VIIRS C2/
+│   │   ├── legacy/                         Fallback: merged.csv + supplementary CSVs
+│   │   ├── weather_hourly__*.parquet       Per-city weather cache (16 files)
+│   │   └── weather_hourly.parquet          Combined hourly weather
+│   ├── processed/
+│   │   ├── master_daily.parquet            Core daily dataset (NB1)
+│   │   ├── master_hourly.parquet           Core hourly dataset (NB1)
+│   │   ├── engineered_daily.parquet        200+ daily features (NB2)
+│   │   ├── engineered_hourly.parquet       100+ hourly features (NB2)
+│   │   └── fires_daily.parquet             Fire labels
+│   └── reference/
+│       ├── cities.parquet                  16 city coordinates
+│       └── static_geography.parquet        Elevation, slope, land cover, population
 │
-├── outputs/                              All pipeline artefacts (.csv/.parquet/.html)
-├── models/                               Trained models + manifests (.joblib/.json)
+├── models/
+│   ├── wildfire/                            Fire detection models (NB4)
+│   │   ├── best_fire_model.joblib          Best calibrated classifier
+│   │   ├── model_manifest.json             Threshold, features, metrics
+│   │   └── feature_columns.json            Feature list for inference
+│   ├── weather/                             Weather forecast models (NB3)
+│   └── prophet_cache/                       Cached Prophet models per city/var
+│
+├── outputs/                                 All pipeline artefacts
+│   ├── weather_forecast_30d.parquet         30-day weather forecast (NB3)
+│   ├── weather_forecast_168h.parquet        168-hour weather forecast (NB3)
+│   ├── weather_leaderboard.csv              Model comparison (NB3)
+│   ├── wildfire_risk_30d.parquet            30-day risk predictions (NB5)
+│   └── *.png / *.csv                        EDA plots, hypothesis tests
+│
+├── reports/
+│   ├── figures/                             Publication-quality figures (NB4, NB6)
+│   ├── maps/                                Interactive HTML maps (NB5)
+│   └── metrics/                             CSV leaderboards and summaries (NB4, NB6)
+│
+├── requirements.txt                         pip install -r requirements.txt
+├── .gitignore
+├── .gitattributes                           Git LFS tracking for .parquet, .csv, .pkl
 └── README.md
 ```
 
-> All files under `outputs/` and `models/` are generated programmatically — nothing is hand-edited.
+> All files under `outputs/`, `models/`, and `reports/` are generated programmatically — nothing is hand-edited.
 
 ---
 
-## 7. Setup & Execution
+## 8. Key Definitions & Glossary
+
+| Term | Full Name | Description |
+|------|-----------|-------------|
+| **FWI** | Fire Weather Index | Composite index estimating wildfire danger from weather conditions |
+| **FFMC** | Fine Fuel Moisture Code | Moisture content of surface litter; high FFMC = dry fine fuels = easy ignition |
+| **DMC** | Duff Moisture Code | Moisture of loosely compacted organic layers; proxy for moderate-depth drought |
+| **DC** | Drought Code | Deep soil moisture deficit; tracks long-term drying trends |
+| **ISI** | Initial Spread Index | Expected rate of fire spread, combining wind speed and FFMC |
+| **BUI** | Buildup Index | Total fuel available for combustion, combining DMC and DC |
+| **VPD** | Vapor Pressure Deficit | Difference between saturated and actual water vapor pressure; higher VPD = drier air = higher fire risk |
+| **FIRMS** | Fire Information for Resource Management System | NASA's global near-real-time active fire detection system using MODIS and VIIRS satellite sensors |
+| **MODIS** | Moderate Resolution Imaging Spectroradiometer | Satellite instrument detecting thermal anomalies at ~1 km resolution |
+| **VIIRS** | Visible Infrared Imaging Radiometer Suite | Successor to MODIS with ~375 m resolution (NPP and NOAA-20/21 satellites) |
+| **NDVI** | Normalized Difference Vegetation Index | Satellite-derived vegetation greenness measure; dead/dry vegetation is more flammable |
+| **NDBI** | Normalized Difference Built-up Index | Satellite-derived urban density measure |
+| **PR-AUC** | Precision-Recall Area Under the Curve | Primary evaluation metric for imbalanced classification — preferred over accuracy |
+| **SMOTE** | Synthetic Minority Over-sampling Technique | Generates synthetic minority-class samples to address class imbalance |
+| **SHAP** | SHapley Additive exPlanations | Game-theory-based method for explaining individual model predictions |
+| **Optuna** | — | Bayesian hyperparameter optimization framework with pruning |
+| **Isotonic Calibration** | — | Non-parametric probability calibration ensuring predicted probabilities match observed frequencies |
+| **ERA5-Land** | — | ECMWF's high-resolution (9 km) land-surface reanalysis dataset |
+
+---
+
+## 9. Setup & Execution
 
 ### Google Colab
 
 1. Upload the project folder to your Google Drive root (→ `/MyDrive/ARIAN_Data/`)
 2. Open any notebook in Colab
 3. Run the first cell — it auto-mounts Drive, detects the project root, and creates directories
-4. Execute cells top-to-bottom
+4. Execute cells top-to-bottom in order: **NB1 → NB2 → NB3 → NB4 → NB5 → NB6**
 
 Override the project path if needed:
 ```python
@@ -222,12 +369,12 @@ import os; os.environ["ARIAN_ROOT"] = "/content/drive/MyDrive/path/to/ARIAN_Data
 ### Local (JupyterLab / VS Code)
 
 ```bash
-cd ARIAN_ASIF
+cd WildFire-Prediction
 pip install -r requirements.txt
 jupyter lab notebooks/
 ```
 
-The setup cell auto-detects the project root by walking up the directory tree. Override with:
+The setup cell in each notebook auto-detects the project root by walking up the directory tree. Override with:
 ```bash
 export ARIAN_ROOT=/absolute/path/to/project
 ```
@@ -238,119 +385,144 @@ export ARIAN_ROOT=/absolute/path/to/project
 |----------|---------|
 | `ARIAN_ROOT` | Absolute path to project root. Overrides auto-detection. |
 
----
+### Git LFS
 
-## 8. Dependencies
-
+Heavy data files (`.parquet`, `.csv`, `.pkl`) are tracked via Git LFS (see `.gitattributes`). After cloning:
+```bash
+git lfs install
+git lfs pull
 ```
-# Core
-pandas>=2.1
-numpy
-pyarrow
-requests
-requests-cache
-retry-requests
-openmeteo-requests
-tqdm
-
-# Phase 2 — EDA
-matplotlib
-seaborn
-scipy
-statsmodels
-
-# Phase 3 — Forecasting
-prophet
-xgboost>=2.0
-scikit-learn>=1.4
-holidays
-
-# Phase 4 — Prediction & Visualization
-folium
-plotly
-joblib
-```
-
-Each notebook installs missing packages automatically via `%pip install` in its first code cell.
 
 ---
 
-## 9. Cities Covered
+## 10. Dependencies
+
+See `requirements.txt` for pinned versions. Summary by notebook:
+
+| Group | Packages | Used By |
+|-------|----------|---------|
+| **Core** | pandas, numpy, pyarrow, joblib, tqdm | All |
+| **Data Ingestion** | openmeteo-requests, requests-cache, retry-requests, requests | NB1 |
+| **EDA** | scipy, statsmodels, prophet, matplotlib, seaborn | NB2 |
+| **Weather Forecasting** | xgboost | NB3 |
+| **Wildfire Detection** | lightgbm, catboost, scikit-learn, imbalanced-learn, optuna, shap | NB4 |
+| **Visualization** | folium, plotly | NB5, NB6 |
+| **Optional** | earthengine-api (GEE enrichment in NB1) | NB1 |
+
+Each notebook also installs missing packages automatically in its first code cell.
+
+---
+
+## 11. Cities Covered
 
 | City | Latitude | Longitude | Key Characteristics |
-|------|----------|-----------|-------------------|
-| Baku | 40.409 | 49.867 | Capital, highest urban %, highest fire rate (30.1%) |
-| Sumqayit | 40.590 | 49.669 | Industrial, coastal |
-| Ganja | 40.683 | 46.361 | Western highlands |
-| Mingachevir | 40.764 | 47.060 | Central lowlands |
-| Shirvan | 39.932 | 48.930 | Kura-Araxes lowland |
-| Lankaran | 38.752 | 48.848 | Southern subtropical |
-| Shaki | 41.198 | 47.169 | Northern foothills |
-| Nakhchivan | 39.209 | 45.412 | Exclave, arid continental |
-| Yevlakh | 40.618 | 47.150 | Central plains |
-| Quba | 41.361 | 48.526 | Northern mountainous |
-| Khachmaz | 41.464 | 48.806 | Northeastern coastal |
-| Gabala | 40.998 | 47.847 | Highest elevation (996 m), most forested (50.5%) |
-| Shamakhi | 40.630 | 48.641 | Mountain plateau |
-| Jalilabad | 39.209 | 48.299 | Southern lowlands |
-| Barda | 40.374 | 47.127 | Karabakh region |
-| Zaqatala | 41.630 | 46.643 | Northwestern, lowest fire rate (3.5%) |
+|---|---:|---:|---|
+| Baku | 40.409 | 49.867 | Capital city; highest urbanization; highest observed fire rate |
+| Shabran | 41.206 | 48.987 | Affected by major wildfire events during 2021–2022 |
+| Ganja | 40.683 | 46.361 | Western highland city; important regional center |
+| Mingachevir | 40.764 | 47.060 | Central lowland city near the Kura River and Mingachevir Reservoir |
+| Shirvan | 39.932 | 48.930 | Located in the Kura-Araz lowland; dry lowland climate |
+| Lankaran | 38.752 | 48.848 | Southern subtropical coastal region |
+| Shaki | 41.198 | 47.169 | Northern foothill region with forest and mountain influence |
+| Nakhchivan | 39.209 | 45.412 | Exclave region; arid continental climate |
+| Yevlakh | 40.618 | 47.150 | Central plains; dry lowland conditions |
+| Quba | 41.361 | 48.526 | Northern mountainous region |
+| Khachmaz | 41.464 | 48.806 | Northeastern coastal region near the Caspian Sea |
+| Gabala | 40.998 | 47.847 | Highest elevation among selected cities; highly forested area |
+| Shamakhi | 40.630 | 48.641 | Mountain plateau region |
+| Jalilabad | 39.209 | 48.299 | Southern lowland region with agricultural land use |
+| Barda | 40.374 | 47.127 | Karabakh region; central lowland area |
+| Zaqatala | 41.630 | 46.643 | Northwestern mountain-foothill region; lowest observed fire rate |
 
 Fire labels are aggregated daily within a **20 km radius** of each city centroid.
 
 ---
 
-## 10. Data Sources & Provenance
+## 12. Data Sources & Provenance
 
 | Source | Data | Access | Notes |
 |--------|------|--------|-------|
-| **Open-Meteo Archive** | Historical hourly weather (2012–present) | Free, no API key | ERA5-Land reanalysis; 9 variables |
+| **Open-Meteo Archive** | Historical hourly weather (2012–present) | Free, no API key | ERA5 + ERA5-Land reanalysis; 9 variables |
 | **Open-Meteo Forecast** | 16-day ahead hourly weather | Free, no API key | Updated daily |
 | **NASA FIRMS** | Active fire detections | Free, archive CSVs | MODIS C6.1 + VIIRS C2 (3 sensors); confidence ≥ "n" (VIIRS) / ≥ 30 (MODIS) |
 | **Open-Elevation** | Terrain elevation | Free, no API key | Slope derived from 4-neighbour 1 km DEM cross |
-| **Supplementary CSVs** | Land cover %, urban %, population | Local reference files | Static per-city attributes |
+| **Google Earth Engine** | MODIS burned area, Sentinel-2 NDVI/NDBI | Free (GEE account) | CSV fallback if GEE unavailable |
+| **Supplementary CSVs** | Land cover %, urban %, population, roads | Local reference files | Static per-city attributes |
 
 ### Caveats
 
-- **Fire risk** represents the probability of any FIRMS-detected hotspot occurring, **not** predicted burn area
-- The classifier is calibrated with **isotonic regression**; use the operational threshold from `phase4_manifest.json`
-- Evaluate with **PR-AUC and recall at the operational threshold** — accuracy is misleading given ~10% fire-day prevalence
-- SARIMA convergence warnings during NB3 training are expected and handled gracefully via fallback models
+- **Fire risk** represents the probability of any FIRMS-detected hotspot occurring, **not** predicted burn area or fire severity
+- The classifier is calibrated with **isotonic regression** — use the operational threshold from `model_manifest.json`
+- Evaluate with **PR-AUC and recall at the operational threshold** — accuracy is misleading given ~8–10 % fire-day prevalence
+- Weather forecast errors compound over the 30-day horizon; days 1–7 are most reliable
 
 ---
 
-## 11. Key Outputs & Deliverables
+## 13. Key Outputs & Deliverables
 
 ### Data Artefacts
 
 | File | Description | Produced By |
 |------|-------------|-------------|
-| `data/processed/master_daily.parquet` | 36,928 city-day rows × 29 columns | NB1 |
-| `data/raw/weather_hourly.parquet` | 886K+ hourly weather observations | NB1 |
-| `data/processed/fires_daily.parquet` | 4,536 fire-day labels across 16 cities | NB1 |
-| `data/processed/engineered_daily.parquet` | 83,392 rows × 90 engineered features | NB2 |
-| `outputs/phase3_weather_hourly_30d.parquet` | 11,520-row 30-day hourly weather forecast | NB3 |
-| `outputs/phase4_wildfire_hourly_30d.parquet` | 11,520-row 30-day hourly fire-risk forecast | NB4 |
+| `data/processed/master_daily.parquet` | City-day rows × 29+ columns | NB1 |
+| `data/processed/master_hourly.parquet` | Hourly weather observations | NB1 |
+| `data/raw/weather_hourly.parquet` | Raw hourly weather (all cities) | NB1 |
+| `data/processed/engineered_daily.parquet` | 200+ engineered features (daily) | NB2 |
+| `data/processed/engineered_hourly.parquet` | 100+ engineered features (hourly) | NB2 |
+| `outputs/weather_forecast_30d.parquet` | 30-day daily weather forecast | NB3 |
+| `outputs/weather_forecast_168h.parquet` | 168-hour weather forecast | NB3 |
+| `outputs/wildfire_risk_30d.parquet` | 30-day fire-risk per city | NB5 |
+
+### ML Models
+
+| File | Description | Produced By |
+|------|-------------|-------------|
+| `models/wildfire/best_fire_model.joblib` | Best calibrated fire classifier | NB4 |
+| `models/wildfire/model_manifest.json` | Threshold, feature list, test metrics | NB4 |
+| `models/wildfire/feature_columns.json` | Feature order for inference | NB4 |
+| `models/prophet_cache/*.pkl` | Cached Prophet models (64 files) | NB3 |
 
 ### Interactive Visualizations
 
-| File | Description |
-|------|-------------|
-| `outputs/phase3_weather_map.html` | Folium map — predicted weather by date (temperature-coded markers) |
-| `outputs/phase4_risk_map.html` | Folium map — wildfire risk by date (4-tier color coding + heatmap) |
-| `outputs/phase4_risk_heatmap.html` | Plotly heatmap — City × Date fire risk matrix |
-| `outputs/phase4_city_timelines.html` | Plotly dashboard — hourly risk timelines per city |
+| File | Description | Produced By |
+|------|-------------|-------------|
+| `reports/maps/fire_risk_*.html` | Folium risk maps (per date) | NB5 |
+| `reports/maps/fire_risk_dashboard.html` | Plotly animated dashboard | NB5 |
+| `reports/figures/fire_shap_summary.png` | SHAP explainability plot | NB4 |
+| `reports/figures/climate_*.png` | Climate trend figures | NB6 |
 
-### ML Models & Reports
+### Reports & Metrics
 
-| File | Description |
-|------|-------------|
-| `models/phase4_xgb_fire.joblib` | Trained & calibrated XGBoost fire classifier |
-| `models/phase4_manifest.json` | Feature order, operational threshold, test metrics |
-| `outputs/phase4_wildfire_scores.csv` | PR-AUC, ROC-AUC, F1, Precision, Recall |
-| `outputs/phase4_hypotheses.csv` | 5 automated climate-vs-fire hypotheses |
-| `outputs/phase4_feature_importance.csv` | Feature importance ranking (gain-based) |
+| File | Description | Produced By |
+|------|-------------|-------------|
+| `reports/metrics/fire_leaderboard.csv` | All models ranked by composite score | NB4 |
+| `reports/metrics/climate_summary.csv` | Climate comparison conclusions | NB6 |
+| `outputs/weather_leaderboard.csv` | Weather model comparison | NB3 |
+| `outputs/hypothesis_tests.csv` | EDA hypothesis test results | NB2 |
 
 ---
 
-*ARIAN — Built by the team at ADA University, 2026.*
+## 14. Evaluation Protocol & Model Targets
+
+### Wildfire Detection (NB4)
+
+| Metric | Target | Rationale |
+|--------|--------|-----------|
+| **Recall** | ≥ 0.60 | Missing a real fire is far worse than a false alarm |
+| **Precision** | ≥ 0.30 | Floor to prevent degenerate "predict all fire" models |
+| **F1** | Maximize | Harmonic mean balancing recall and precision |
+| **PR-AUC** | ≥ 0.20 | Primary ranking metric for imbalanced classification |
+| **Overfit gap** | < 0.15 | Train-vs-val F1 difference; models exceeding this are flagged |
+
+**Composite objective** used for Optuna and model ranking: `0.6 × Recall + 0.4 × F1`
+
+### Weather Forecasting (NB3)
+
+| Metric | Description |
+|--------|-------------|
+| **MAE** | Mean Absolute Error — primary comparison metric |
+| **RMSE** | Root Mean Squared Error — penalizes large deviations |
+
+Evaluated on a temporal holdout (last 30 days for daily, last 168 hours for hourly).
+
+---
