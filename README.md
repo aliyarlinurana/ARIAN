@@ -103,44 +103,44 @@ All reusable functions are factored into a shared **`src/` Python module** (conf
 │  └───────────────┬─────────────────┘                      │
 │                  │                                        │
 │                  ▼                                        │
-│   master_daily + master_hourly + weather_hourly.parquet                    │
-│                  │                                                         │
-│                  ▼                                                         │
-│  ┌─────────────────────────────────┐                                       │
-│  │  NB2 — EDA & Feature Eng.       │                                       │
-│  │  200+ features: FWI, VPD,       │                                       │
-│  │  lags, rolling, Prophet resid   │                                       │
-│  └───────────────┬─────────────────┘                                       │
-│                  │                                                         │
-│                  ▼                                                         │
-│   engineered_daily + engineered_hourly.parquet                             │
-│                  │                                                         │
-│         ┌────────┴────────────────┐                                        │
-│         ▼                         ▼                                        │
-│  ┌──────────────┐  ┌──────────────────────────────┐                        │
-│  │  NB3 Weather │  │  NB4 Wildfire Detection      │                        │
-│  │  Prophet+XGB │  │  8 models + Optuna + SHAP    │                        │
-│  │  30d + 168h  │  │  3-way split, calibration    │                        │
-│  └──────┬───────┘  └──────────────┬───────────────┘                        │
-│         │                         │                                        │
-│         └──────────┬──────────────┘                                        │
-│                    ▼                                                       │
-│  ┌──────────────────────────────────────┐                                  │
-│  │  NB5 — Risk Prediction & Dashboard  │                                   │
-│  │  30-day risk + Folium + Plotly maps │                                   │
-│  └──────────────────┬───────────────────┘                                  │
-│                     ▼                                                      │
-│  ┌──────────────────────────────────────┐                                  │
-│  │  NB6 — Climate Report               │                                   │
-│  │  Trends + comparisons + jury report │                                   │
-│  └──────────────────────────────────────┘                                  │
-│                                                                            │
-│  ┌──────────────────────────────────────┐                                  │
-│  │  src/ — Shared Python Module        │                                   │
-│  │  config · features · modeling ·     │                                   │
-│  │  evaluation · visualization · utils │                                   │
-│  └──────────────────────────────────────┘                                  │
-└────────────────────────────────────────────────────────────────────────────┘
+│   master_daily + master_hourly + weather_hourly.parquet   │
+│                  │                                        │
+│                  ▼                                        │
+│  ┌─────────────────────────────────┐                      │
+│  │  NB2 — EDA & Feature Eng.       │                      │
+│  │  200+ features: FWI, VPD,       │                      │
+│  │  lags, rolling, Prophet resid   │                      │
+│  └───────────────┬─────────────────┘                      │
+│                  │                                        │
+│                  ▼                                        │
+│   engineered_daily + engineered_hourly.parquet            │
+│                  │                                        │
+│         ┌────────┴────────────────┐                       │
+│         ▼                         ▼                       │
+│  ┌──────────────┐  ┌──────────────────────────────┐       │
+│  │  NB3 Weather │  │  NB4 Wildfire Detection      │       │
+│  │  Prophet+XGB │  │  8 models + Optuna + SHAP    │       │
+│  │  30d + 168h  │  │  3-way split, calibration    │       │
+│  └──────┬───────┘  └──────────────┬───────────────┘       │
+│         │                         │                       │
+│         └──────────┬──────────────┘                       │
+│                    ▼                                      │
+│  ┌──────────────────────────────────────┐                 │
+│  │  NB5 — Risk Prediction & Dashboard   │                 │
+│  │  30-day risk + Folium + Plotly maps  │                 │
+│  └──────────────────┬───────────────────┘                 │
+│                     ▼                                     │
+│  ┌──────────────────────────────────────┐                 │
+│  │  NB6 — Climate Report                │                 │
+│  │  Trends + comparisons + jury report  │                 │
+│  └──────────────────────────────────────┘                 │
+│                                                           │
+│  ┌──────────────────────────────────────┐                 │
+│  │  src/ — Shared Python Module         │                 │
+│  │  config · features · modeling ·      │                 │
+│  │  evaluation · visualization · utils  │                 │
+│  └──────────────────────────────────────┘                 │
+└──────────────────────────────────────────── ──────────────┘
 ```
 
 ---
